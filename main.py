@@ -107,14 +107,25 @@ def handle_message(req):
         # Gerar resposta com Claude
         response_text = claude_handler.get_response(message_text)
 
-        # Enviar resposta
-        send_message(sender_phone, response_text)
+        # Enviar resposta (corrigindo nono dígito de números brasileiros)
+        send_message(fix_brazil_number(sender_phone), response_text)
 
         return jsonify({"success": True}), 200
 
     except Exception as e:
         logger.error(f"❌ Erro ao processar mensagem: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+def fix_brazil_number(phone):
+    """
+    Corrige números brasileiros sem o nono dígito.
+    O WhatsApp entrega o número como 55 + DDD + 8 dígitos (ex: 554191756183),
+    mas a API exige o formato com 9 (ex: 5541991756183).
+    """
+    if phone and phone.startswith("55") and len(phone) == 12:
+        return phone[:4] + "9" + phone[4:]
+    return phone
 
 
 def extract_message_text(message):
