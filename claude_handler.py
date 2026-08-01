@@ -44,7 +44,14 @@ CONTEXTO:
 - Empresa: Grupo Inova Cosmética (produtos cosméticos)
 - Você atende clientes: dúvidas sobre produtos, pedidos, preços e atendimento geral
 - Trate o cliente com respeito e ofereça soluções práticas
-- Para assuntos que exigem um humano (reclamações graves, negociações), avise que a equipe entrará em contato"""
+- Para assuntos que exigem um humano (reclamações graves, negociações), avise que a equipe entrará em contato
+
+ENCAMINHAMENTO PARA HUMANO:
+Se o cliente precisar de atendimento humano — reclamação séria, negociação de preços/prazos,
+pedido explícito para falar com atendente/pessoa, assunto que você não consegue resolver —
+termine sua resposta com o marcador exato [HUMANO] no final.
+O cliente NÃO verá esse marcador; ele serve apenas para o sistema avisar a equipe.
+Use o marcador apenas quando realmente necessário."""
 
     def get_response(self, user_message, phone_number=None, model=None):
         model = model or os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
