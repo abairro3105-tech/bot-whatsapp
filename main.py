@@ -6,9 +6,7 @@ Webhook para receber e responder mensagens
 import os
 import json
 import logging
-import smtplib
 import threading
-from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from datetime import datetime
 import requests
@@ -32,10 +30,10 @@ WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "seu_token_verificacao")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
-# Alertas de atendimento humano (e-mail)
+# Alertas de atendimento humano (e-mail via Brevo API - HTTPS)
 ALERT_EMAIL = os.getenv("ALERT_EMAIL")          # quem recebe o alerta
-SMTP_USER = os.getenv("SMTP_USER")              # conta Gmail que envia
-SMTP_PASS = os.getenv("SMTP_PASS")              # senha de app do Gmail
+ALERT_FROM = os.getenv("ALERT_FROM", "abairro3105@gmail.com")  # remetente
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")      # chave da API Brevo
 
 # Inicializar handler Claude
 claude_handler = ClaudeHandler(api_key=CLAUDE_API_KEY)
@@ -138,10 +136,10 @@ def handle_message(req):
 def send_human_alert(client_phone, client_message, bot_reply):
     """
     Envia e-mail de alerta quando um cliente precisa de atendimento humano.
-    Usa Gmail SMTP (requer SMTP_USER e SMTP_PASS como senha de app).
+    Usa a API HTTPS do Brevo (o Render bloqueia SMTP tradicional).
     """
-    if not (ALERT_EMAIL and SMTP_USER and SMTP_PASS):
-        logger.warning("⚠️ Alerta humano detectado, mas e-mail não configurado (ALERT_EMAIL/SMTP_USER/SMTP_PASS)")
+    if not (ALERT_EMAIL and BREVO_API_KEY):
+        logger.warning("⚠️ Alerta humano detectado, mas e-mail não configurado (ALERT_EMAIL/BREVO_API_KEY)")
         return
 
     try:
@@ -164,17 +162,25 @@ def send_human_alert(client_phone, client_message, bot_reply):
 --
 Bot Grupo Inova Cosmética
 """
-        msg = MIMEText(body, "plain", "utf-8")
-        msg["Subject"] = f"🔔 Cliente aguarda atendimento humano: +{phone_fmt}"
-        msg["From"] = SMTP_USER
-        msg["To"] = ALERT_EMAIL
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "api-key": BREVO_API_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "sender": {"name": "Bot Grupo Inova", "email": ALERT_FROM},
+                "to": [{"email": ALERT_EMAIL}],
+                "subject": f"🔔 Cliente aguarda atendimento humano: +{phone_fmt}",
+                "textContent": body
+            },
+            timeout=20
+        )
 
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-
-        logger.info(f"📧 Alerta de atendimento humano enviado para {ALERT_EMAIL}")
+        if response.status_code in (200, 201):
+            logger.info(f"📧 Alerta de atendimento humano enviado para {ALERT_EMAIL}")
+        else:
+            logger.error(f"❌ Brevo retornou erro: {response.status_code} {response.text}")
 
     except Exception as e:
         logger.error(f"❌ Erro ao enviar alerta por e-mail: {str(e)}")
