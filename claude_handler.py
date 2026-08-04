@@ -113,6 +113,51 @@ Use o marcador apenas quando realmente necessário."""
             logger.error(f"❌ Erro ao gerar resposta com Claude: {str(e)}", exc_info=True)
             return "Desculpe, tive um problema ao processar sua mensagem. Por favor, tente novamente."
 
+    def get_transcript(self, phone_number, max_messages=10):
+        """
+        Retorna as últimas mensagens da conversa em formato legível,
+        para incluir no e-mail de alerta da equipe.
+        """
+        if phone_number not in self.conversations:
+            return None
+
+        history = self.conversations[phone_number][-max_messages:]
+        lines = []
+        for msg in history:
+            who = "Cliente" if msg["role"] == "user" else "Bot"
+            lines.append(f"[{who}]: {msg['content']}")
+        return "\n".join(lines) if lines else None
+
+    def summarize_conversation(self, phone_number):
+        """
+        Usa o Claude para gerar um resumo curto do que o cliente deseja.
+        Usado no e-mail de alerta para a equipe de atendimento humano.
+        """
+        transcript = self.get_transcript(phone_number, max_messages=20)
+        if not transcript:
+            return None
+
+        try:
+            model = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=200,
+                system=(
+                    "Você resume conversas de atendimento para a equipe comercial. "
+                    "Escreva em português, em 2 a 3 frases diretas: o que o cliente quer, "
+                    "qual o assunto/problema, e qualquer dado útil que ele informou "
+                    "(produto, pedido, quantidade, urgência). Sem saudações, direto ao ponto."
+                ),
+                messages=[{
+                    "role": "user",
+                    "content": f"Resuma esta conversa para a equipe de atendimento:\n\n{transcript}"
+                }]
+            )
+            return response.content[0].text.strip()
+        except Exception as e:
+            logger.error(f"Erro ao resumir conversa: {str(e)}")
+            return None
+
     def clear_conversation(self, phone_number):
         """Limpar histórico de conversa (opcional)"""
         if phone_number in self.conversations:

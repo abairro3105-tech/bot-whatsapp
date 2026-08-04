@@ -110,16 +110,19 @@ def handle_message(req):
         # Enviar "digitando..."
         send_typing_indicator(sender_phone)
 
-        # Gerar resposta com Claude
-        response_text = claude_handler.get_response(message_text)
+        # Gerar resposta com Claude (histórico separado por cliente)
+        response_text = claude_handler.get_response(message_text, phone_number=sender_phone)
 
         # Detectar pedido de atendimento humano
         if "[HUMANO]" in response_text:
             response_text = response_text.replace("[HUMANO]", "").strip()
+            # Gerar resumo da conversa para a equipe
+            summary = claude_handler.summarize_conversation(sender_phone)
+            transcript = claude_handler.get_transcript(sender_phone)
             # Enviar alerta por e-mail em segundo plano (não trava a resposta)
             threading.Thread(
                 target=send_human_alert,
-                args=(sender_phone, message_text, response_text),
+                args=(sender_phone, message_text, response_text, summary, transcript),
                 daemon=True
             ).start()
 
@@ -133,7 +136,7 @@ def handle_message(req):
         return jsonify({"error": str(e)}), 500
 
 
-def send_human_alert(client_phone, client_message, bot_reply):
+def send_human_alert(client_phone, client_message, bot_reply, summary=None, transcript=None):
     """
     Envia e-mail de alerta quando um cliente precisa de atendimento humano.
     Usa a API HTTPS do Brevo (o Render bloqueia SMTP tradicional).
@@ -146,18 +149,28 @@ def send_human_alert(client_phone, client_message, bot_reply):
         phone_fmt = fix_brazil_number(client_phone)
         wa_link = f"https://wa.me/{phone_fmt}"
 
+        summary_block = f"""📋 RESUMO DO QUE O CLIENTE QUER:
+{summary}
+
+""" if summary else ""
+
+        transcript_block = f"""📜 CONVERSA COMPLETA:
+{transcript}
+
+""" if transcript else ""
+
         body = f"""🔔 ATENDIMENTO HUMANO SOLICITADO
 
 📱 Cliente: +{phone_fmt}
 🔗 Abrir conversa: {wa_link}
 
-💬 Última mensagem do cliente:
+{summary_block}💬 Última mensagem do cliente:
 "{client_message}"
 
 🤖 O que o bot respondeu:
 "{bot_reply}"
 
-⏰ Recebido em: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+{transcript_block}⏰ Recebido em: {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 --
 Bot Grupo Inova Cosmética
