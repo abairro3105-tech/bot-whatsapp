@@ -47,11 +47,33 @@ CONTEXTO:
 - Para assuntos que exigem um humano (reclamações graves, negociações), avise que a equipe entrará em contato
 
 ENCAMINHAMENTO PARA HUMANO:
-Se o cliente precisar de atendimento humano — reclamação séria, negociação de preços/prazos,
-pedido explícito para falar com atendente/pessoa, assunto que você não consegue resolver —
-termine sua resposta com o marcador exato [HUMANO] no final.
-O cliente NÃO verá esse marcador; ele serve apenas para o sistema avisar a equipe.
-Use o marcador apenas quando realmente necessário."""
+O marcador exato [HUMANO] no final da sua resposta aciona o alerta para a equipe.
+O cliente NÃO vê esse marcador. Existem DUAS regras diferentes, dependendo do assunto:
+
+▶ ASSUNTOS DE SAC (reclamação, problema com pedido/entrega, troca, defeito,
+dúvida sobre pedido já feito, insatisfação):
+- Encaminhe RÁPIDO: colha apenas o essencial em 1-2 perguntas (o que aconteceu
+  e número do pedido, se houver) e já finalize com [HUMANO].
+- Não faça o cliente insatisfeito esperar preenchendo formulário.
+
+▶ ASSUNTOS COMERCIAIS (quer revender, atacado, marca própria, parceria,
+orçamento, fabricação, distribuição, "falar com o comercial"):
+- Antes de encaminhar, você DEVE coletar TODAS estas informações obrigatórias,
+  perguntando de forma natural e simpática (uma ou duas por vez, nunca todas juntas):
+  1. Já possui CNPJ? Qual?
+  2. Qual é o assunto que deseja tratar com o Comercial?
+  3. Já possui marca registrada? Qual?
+  4. Já trabalha com produtos de marca própria? Quais?
+  5. Quais são os canais de venda atuais? (loja física, e-commerce, marketplace,
+     redes sociais, revenda, etc)
+- REGRA RÍGIDA: NÃO use o marcador [HUMANO] enquanto faltar qualquer resposta.
+  Se o cliente pular uma pergunta, retome com educação: explique que essas
+  informações são necessárias para direcionar ao especialista certo.
+- Se o cliente disser que NÃO tem (ex: não tem CNPJ), isso CONTA como resposta
+  válida — registre "não possui" e siga para a próxima.
+- Quando tiver TODAS as respostas, confirme com o cliente um resuminho dos dados,
+  agradeça, avise que a equipe comercial entrará em contato, e SÓ ENTÃO
+  finalize com [HUMANO]."""
 
     def get_response(self, user_message, phone_number=None, model=None):
         model = model or os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
@@ -143,10 +165,21 @@ Use o marcador apenas quando realmente necessário."""
                 model=model,
                 max_tokens=200,
                 system=(
-                    "Você resume conversas de atendimento para a equipe comercial. "
-                    "Escreva em português, em 2 a 3 frases diretas: o que o cliente quer, "
-                    "qual o assunto/problema, e qualquer dado útil que ele informou "
-                    "(produto, pedido, quantidade, urgência). Sem saudações, direto ao ponto."
+                    "Você resume conversas de atendimento para a equipe do Grupo Inova Cosmética. "
+                    "Escreva em português, direto ao ponto, sem saudações.\n\n"
+                    "Se for assunto COMERCIAL, formate assim:\n"
+                    "TIPO: Comercial\n"
+                    "ASSUNTO: (o que o cliente quer tratar)\n"
+                    "CNPJ: (número informado ou 'não possui')\n"
+                    "MARCA REGISTRADA: (qual ou 'não possui')\n"
+                    "MARCA PRÓPRIA: (quais produtos ou 'não trabalha')\n"
+                    "CANAIS DE VENDA: (os que ele citou)\n"
+                    "OBSERVAÇÕES: (qualquer outro dado útil: quantidades, urgência, cidade)\n\n"
+                    "Se for assunto de SAC, formate assim:\n"
+                    "TIPO: SAC\n"
+                    "PROBLEMA: (o que aconteceu)\n"
+                    "PEDIDO: (número, se informado)\n"
+                    "OBSERVAÇÕES: (dados úteis: produto, urgência, tom do cliente)"
                 ),
                 messages=[{
                     "role": "user",
