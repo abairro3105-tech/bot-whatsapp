@@ -31,7 +31,8 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "seu_token_verificacao")
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
 # Alertas de atendimento humano (e-mail via Brevo API - HTTPS)
-ALERT_EMAIL = os.getenv("ALERT_EMAIL")          # quem recebe o alerta
+ALERT_EMAIL = os.getenv("ALERT_EMAIL")          # quem recebe todos os alertas
+ALERT_EMAIL_COMERCIAL = os.getenv("ALERT_EMAIL_COMERCIAL", "marcos08018@gmail.com")  # cópia nos alertas comerciais
 ALERT_FROM = os.getenv("ALERT_FROM", "abairro3105@gmail.com")  # remetente
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")      # chave da API Brevo
 
@@ -175,6 +176,14 @@ def send_human_alert(client_phone, client_message, bot_reply, summary=None, tran
 --
 Bot Grupo Inova Cosmética
 """
+        # Destinatários: alertas COMERCIAIS vão também para o e-mail do comercial
+        recipients = [{"email": ALERT_EMAIL}]
+        is_comercial = summary and "TIPO: Comercial" in summary
+        if is_comercial and ALERT_EMAIL_COMERCIAL:
+            recipients.append({"email": ALERT_EMAIL_COMERCIAL})
+
+        subject_prefix = "💼 COMERCIAL" if is_comercial else "🔔"
+
         response = requests.post(
             "https://api.brevo.com/v3/smtp/email",
             headers={
@@ -183,8 +192,8 @@ Bot Grupo Inova Cosmética
             },
             json={
                 "sender": {"name": "Bot Grupo Inova", "email": ALERT_FROM},
-                "to": [{"email": ALERT_EMAIL}],
-                "subject": f"🔔 Cliente aguarda atendimento humano: +{phone_fmt}",
+                "to": recipients,
+                "subject": f"{subject_prefix} Cliente aguarda atendimento humano: +{phone_fmt}",
                 "textContent": body
             },
             timeout=20
